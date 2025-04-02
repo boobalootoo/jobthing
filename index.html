@@ -37,7 +37,7 @@
                 </div>
             </div>
             <p id="file-name" class="mt-2 text-sm text-gray-500"></p>
-            <p class="text-gray-500 text-sm mt-1">Instructions: 1- ctrl L 2- ctrl V 3- enter 4- ctrl A 5- ctrl C 6- go to previous tab 7- paste into text box</p>
+            <p class="text-gray-500 text-sm mt-1">Instructions: 1- ctrl L 2- ctrl V 3- enter 4- ctrl U 5- ctrl A 6- ctrl C 7- paste into text box</p>
             <label for="codeInput" class="block text-gray-700 text-sm font-bold mb-2 mt-4">Paste Source Code:</label>
             <textarea id="codeInput" placeholder="Paste HTML source code here..." class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32 resize-y"></textarea>
             
@@ -65,7 +65,7 @@
         const copySourceCodeAddressButton = document.getElementById('copySourceCodeAddress');
 
 
-        const sourceCodeAddress = "view-source:https://uk.indeed.com/jobs?q=&l=BN2&from=searchOnHP&vjk=56c254694960efac";
+        const sourceCodeAddress = "https://uk.indeed.com/jobs?q=&l=BN2&from=searchOnHP&vjk=56c254694960efac";
 
         const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB limit
         const MAX_TEXT_LENGTH = 2000000; // 2MB character limit (approx, assuming 1 byte per char)
