@@ -1,367 +1,179 @@
 <!DOCTYPE html>
-
 <html lang="en">
-
 <head>
-
-    <meta charset="UTF-8">
-
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>Job Listing Extractor</title>
-
-    <style>
-
-        body { font-family: sans-serif; margin: 20px; }
-
-        #jobs { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
-
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-
-        th { background-color: #f0f0f0; }
-
-        #map { height: 400px; width: 100%; border: 1px solid #ccc; }
-
-    </style>
-
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Listing Extractor</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #jobs { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+        th { background-color: #f0f0f0; }
+        #map { height: 400px; width: 100%; border: 1px solid #ccc; }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
 </head>
-
 <body>
-
-    <div id="map"></div>
-
-    <input type="text" id="url" placeholder="Enter URL">
-
-    <button onclick="getJobs()">Get Jobs</button>
-
-    <div id="jobs"></div>
-
-
-
-    <script>
-
-        let map;
-
-        let markers = [];
-
-
-
-        function initMap() {
-
-            map = L.map('map').setView([50.8278, -0.0742], 9); // Centered on Sussex
-
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-
-            }).addTo(map);
-
-        }
-
-
-
-        function addMarker(job) {
-
-            if (!map || !job.lat || !job.lng) return;
-
-
-
-            let marker = L.marker([job.lat, job.lng]).addTo(map);
-
-            
-
-            let popupContent = `
-
-                <b><a href="${job.link}" target="_blank">${job.title}</a></b><br>
-
-                Salary: ${job.salary}<br>
-
-                Ref Num: ${job.refNum}<br>
-
-                Time: ${job.time}<br>
-
-                Posted: ${job.posted}<br>
-
-                Location: ${job.locationName}
-
-            `;
-
-            
-
-            marker.bindPopup(popupContent);
-
-            markers.push(marker);
-
-        }
-
-
-
-        function clearMarkers() {
-
-            markers.forEach(marker => map.removeLayer(marker));
-
-            markers = [];
-
-        }
-
-
-
-        async function getJobs() {
-
-            const url = document.getElementById('url').value;
-
-            const jobsDiv = document.getElementById('jobs');
-
-            jobsDiv.innerHTML = 'Loading...';
-
-            clearMarkers();
-
-
-
-            try {
-
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-
-                const response = await fetch(proxyUrl);
-
-                const data = await response.json();
-
-                const html = data.contents;
-
-                const parser = new DOMParser();
-
-                const doc = parser.parseFromString(html, 'text/html');
-
-
-
-                const jobContainers = doc.querySelectorAll('.card-job-col');
-
-                
-
-                if (jobContainers.length > 0) {
-
-                    let tableHTML = '<table>';
-
-                    tableHTML += '<thead><tr><th>Title</th><th>Salary</th><th>Ref Num</th><th>Time</th><th>Posted</th><th>Location</th><th>Link</th></tr></thead><tbody>';
-
-                    
-
-                    let bounds = L.latLngBounds();
-
-                    let jobs = [];
-
-                    
-
-                    jobContainers.forEach(container => {
-
-                        const titleElement = container.querySelector('.card-title');
-
-                        const salary = container.getAttribute('data-salary');
-
-                        const refNumElement = container.querySelector('.card-refNum');
-
-                        const timeElement = container.querySelector('.card-time');
-
-                        const postedElement = container.querySelector('.card-post-date');
-
-                        const locationElement = container.querySelector('.card-location-name');
-
-                        const linkElement = container.querySelector('.card-job');
-
-
-
-                        const title = titleElement ? titleElement.textContent.trim() : 'N/A';
-
-                        const salaryText = salary ? salary : 'N/A';
-
-                        const refNum = refNumElement ? refNumElement.textContent.trim() : 'N/A';
-
-                        const time = timeElement ? timeElement.textContent.trim() : 'N/A';
-
-                        const posted = postedElement ? postedElement.textContent.trim() : 'N/A';
-
-                        const locationName = locationElement ? locationElement.textContent.trim() : 'N/A';
-
-                        const link = linkElement ? linkElement.href : '';
-
-
-
-                        // Sussex locations mapping
-
-                        const sussexLocations = {
-
-                            'brighton': [50.8225, -0.1372],
-
-                            'crawley': [51.1118, -0.1883],
-
-                            'coolham': [50.9567, -0.3381],
-
-                            'horsham': [51.0371, -0.3277],
-
-                            'hove': [50.8410, -0.1564],
-
-                            'worthing': [50.8167, -0.3728],
-
-                            'eastbourne': [50.7680, 0.2905],
-
-                            'hastings': [50.8562, 0.5735],
-
-                            'lewes': [50.8748, 0.0115],
-
-                            'newhaven': [50.7913, 0.0416],
-
-                            'seaford': [50.7715, 0.0837],
-
-                            'uckfield': [51.0055, 0.1075],
-
-                            'hailsham': [50.8637, 0.3421],
-
-                            'polegate': [50.8175, 0.2704],
-
-                            'shoreham-by-sea': [50.8264, -0.2720],
-
-                            'burgess hill': [50.9632, -0.1383],
-
-                            'haywards heath': [50.9934, -0.0934],
-
-                            'littlehampton': [50.8063, -0.5475],
-
-                            'bognor regis': [50.7857, -0.6722],
-
-                            'chichester': [50.8374, -0.7783],
-
-                            'billingshurst': [51.0233, -0.4543],
-
-                            'rustington': [50.8103, -0.5083],
-
-                            'shoreham': [50.8264, -0.2720],
-
-                            'billingshurst, west sussex': [51.0233, -0.4543],
-
-                            'coolham, west sussex': [50.9567, -0.3381],
-
-                            'brighton, east sussex': [50.8225, -0.1372],
-
-                            'shoreham-on-sea': [50.8264, -0.2720]
-
-                        };
-
-
-
-                        let lat = 0;
-
-                        let lng = 0;
-
-                        
-
-                        const locationKey = locationName.toLowerCase().trim()
-
-                            .replace(/,.*$/, '')  // Remove county suffix
-
-                            .replace(/-/g, '')   // Remove hyphens
-
-                            .replace(/\s+/g, ''); // Remove spaces
-
-
-
-                        if (sussexLocations[locationKey]) {
-
-                            lat = sussexLocations[locationKey][0];
-
-                            lng = sussexLocations[locationKey][1];
-
-                            bounds.extend([lat, lng]);
-
-                        } else {
-
-                            console.log(`Location "${locationName}" not found in Sussex list.`);
-
-                        }
-
-
-
-                        jobs.push({ title, salary: salaryText, refNum, time, posted, locationName, link, lat, lng });
-
-                        
-
-                        tableHTML += `
-
-                            <tr>
-
-                                <td>${title}</td>
-
-                                <td>${salaryText}</td>
-
-                                <td>${refNum}</td>
-
-                                <td>${time}</td>
-
-                                <td>${posted}</td>
-
-                                <td>${locationName}</td>
-
-                                <td><a href="${link}" target="_blank">Apply</a></td>
-
-                            </tr>
-
-                        `;
-
-                    });
-
-
-
-                    tableHTML += '</tbody></table>';
-
-                    jobsDiv.innerHTML = tableHTML;
-
-
-
-                    jobs.forEach(job => {
-
-                        addMarker(job);
-
-                    });
-
-
-
-                    if (bounds.isValid()) {
-
-                        map.fitBounds(bounds, { padding: [50, 50] });
-
-                    } else {
-
-                        map.setView([50.8278, -0.0742], 9);
-
-                    }
-
-
-
-                } else {
-
-                    jobsDiv.innerHTML = 'No jobs found.';
-
-                }
-
-            } catch (error) {
-
-                jobsDiv.innerHTML = `Error: ${error.message}`;
-
-            }
-
-        }
-
-
-
-        window.onload = initMap;
-
-    </script>
-
+    <div id="map"></div>
+    <input type="text" id="url" placeholder="Enter URL">
+    <button onclick="getJobs()">Get Jobs</button>
+    <div id="jobs"></div>
+
+    <script>
+        let map;
+        let markers = [];
+
+        // Initialize the map immediately when the script loads
+        document.addEventListener('DOMContentLoaded', function() {
+            map = L.map('map').setView([50.8278, -0.0742], 9);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        });
+
+        // Rest of your existing functions remain unchanged...
+        function addMarker(job) {
+            if (!map || !job.lat || !job.lng) return;
+            let marker = L.marker([job.lat, job.lng]).addTo(map);
+            let popupContent = `
+                <b><a href="${job.link}" target="_blank">${job.title}</a></b><br>
+                Salary: ${job.salary}<br>
+                Ref Num: ${job.refNum}<br>
+                Time: ${job.time}<br>
+                Posted: ${job.posted}<br>
+                Location: ${job.locationName}
+            `;
+            marker.bindPopup(popupContent);
+            markers.push(marker);
+        }
+
+        function clearMarkers() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+        }
+
+        async function getJobs() {
+            const url = document.getElementById('url').value;
+            const jobsDiv = document.getElementById('jobs');
+            jobsDiv.innerHTML = 'Loading...';
+            clearMarkers();
+
+            try {
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const html = data.contents;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                const jobContainers = doc.querySelectorAll('.card-job-col');
+
+                if (jobContainers.length > 0) {
+                    let tableHTML = '<table>';
+                    tableHTML += '<thead><tr><th>Title</th><th>Salary</th><th>Ref Num</th><th>Time</th><th>Posted</th><th>Location</th><th>Link</th></tr></thead><tbody>';
+
+                    let bounds = L.latLngBounds();
+                    let jobs = [];
+
+                    jobContainers.forEach(container => {
+                        const titleElement = container.querySelector('.card-title');
+                        const salary = container.getAttribute('data-salary');
+                        const refNumElement = container.querySelector('.card-refNum');
+                        const timeElement = container.querySelector('.card-time');
+                        const postedElement = container.querySelector('.card-post-date');
+                        const locationElement = container.querySelector('.card-location-name');
+                        const linkElement = container.querySelector('.card-job');
+
+                        const title = titleElement ? titleElement.textContent.trim() : 'N/A';
+                        const salaryText = salary ? salary : 'N/A';
+                        const refNum = refNumElement ? refNumElement.textContent.trim() : 'N/A';
+                        const time = timeElement ? timeElement.textContent.trim() : 'N/A';
+                        const posted = postedElement ? postedElement.textContent.trim() : 'N/A';
+                        const locationName = locationElement ? locationElement.textContent.trim() : 'N/A';
+                        const link = linkElement ? linkElement.href : '';
+
+                        const sussexLocations = {
+    'brighton': [50.8225, -0.1372],
+    'crawley': [51.1118, -0.1883],
+    'coolham': [50.9567, -0.3381],
+    'horsham': [51.0371, -0.3277],
+    'hove': [50.8410, -0.1564],
+    'worthing': [50.8167, -0.3728],
+    'eastbourne': [50.7680, 0.2905],
+    'hastings': [50.8562, 0.5735],
+    'lewes': [50.8748, 0.0115],
+    'newhaven': [50.7913, 0.0416],
+    'seaford': [50.7715, 0.0837],
+    'uckfield': [51.0055, 0.1075],
+    'hailsham': [50.8637, 0.3421],
+    'polegate': [50.8175, 0.2704],
+    'shoreham-by-sea': [50.8264, -0.2720],
+    'burgess hill': [50.9632, -0.1383],
+    'haywards heath': [50.9934, -0.0934],
+    'littlehampton': [50.8063, -0.5475],
+    'bognor regis': [50.7857, -0.6722],
+    'chichester': [50.8374, -0.7783],
+    'billingshurst': [51.0233, -0.4543],
+    'rustington': [50.8103, -0.5083],
+    'shoreham': [50.8264, -0.2720],
+    'billingshurst, west sussex': [51.0233, -0.4543],
+    'coolham, west sussex': [50.9567, -0.3381],
+    'brighton, east sussex': [50.8225, -0.1372],
+    'shoreham-on-sea': [50.8264, -0.2720],  // Added mapping
+    'shoreham': [50.8264, -0.2720]
+};
+
+                        let lat = 0;
+                        let lng = 0;
+
+                        const locationKey = locationName.toLowerCase().trim()
+                            .replace(/,.*$/, '')  
+                            .replace(/-/g, '')   
+                            .replace(/\s+/g, '');
+
+                        if (sussexLocations[locationKey]) {
+                            lat = sussexLocations[locationKey][0];
+                            lng = sussexLocations[locationKey][1];
+                            bounds.extend([lat, lng]);
+                        }
+
+                        jobs.push({ title, salary: salaryText, refNum, time, posted, locationName, link, lat, lng });
+
+                        tableHTML += `
+                            <tr>
+                                <td>${title}</td>
+                                <td>${salaryText}</td>
+                                <td>${refNum}</td>
+                                <td>${time}</td>
+                                <td>${posted}</td>
+                                <td>${locationName}</td>
+                                <td><a href="${link}" target="_blank">Apply</a></td>
+                            </tr>
+                        `;
+                    });
+
+                    tableHTML += '</tbody></table>';
+                    jobsDiv.innerHTML = tableHTML;
+
+                    jobs.forEach(job => {
+                        addMarker(job);
+                    });
+
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds, { padding: [50, 50] });
+                    } else {
+                        map.setView([50.8278, -0.0742], 9);
+                    }
+
+                } else {
+                    jobsDiv.innerHTML = 'No jobs found.';
+                }
+            } catch (error) {
+                jobsDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
 </body>
-
 </html>
