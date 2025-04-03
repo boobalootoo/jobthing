@@ -17,25 +17,165 @@
 </head>
 <body>
     <div id="map"></div>
-    <input type="text" id="url" placeholder="Enter URL">
-    <button onclick="getJobs()">Get Jobs</button>
     <div id="jobs"></div>
 
     <script>
         let map;
         let markers = [];
+        let allJobs = [];
 
-        // Initialize the map immediately when the script loads
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
             map = L.map('map').setView([50.8278, -0.0742], 9);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
+
+            // Load all pages sequentially
+            const pages = [
+                'https://www.gogecko.org.uk/jobs/',
+                'https://www.gogecko.org.uk/jobs/page/2/',
+                'https://www.gogecko.org.uk/jobs/page/3/',
+                'https://www.gogecko.org.uk/jobs/page/4/'
+            ];
+
+            document.getElementById('jobs').innerHTML = 'Loading all pages...';
+
+            for (let page of pages) {
+                try {
+                    const jobs = await getJobsFromPage(page);
+                    allJobs = allJobs.concat(jobs);
+                } catch (error) {
+                    console.error(`Error loading ${page}:`, error);
+                }
+            }
+
+            if (allJobs.length > 0) {
+                displayJobs(allJobs);
+            } else {
+                document.getElementById('jobs').innerHTML = 'No jobs found.';
+            }
         });
 
-        // Rest of your existing functions remain unchanged...
+        async function getJobsFromPage(url) {
+            try {
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const html = data.contents;
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                const jobContainers = doc.querySelectorAll('.card-job-col');
+                const jobs = [];
+
+                jobContainers.forEach(container => {
+                    const titleElement = container.querySelector('.card-title');
+                    const salary = container.getAttribute('data-salary');
+                    const refNumElement = container.querySelector('.card-refNum');
+                    const timeElement = container.querySelector('.card-time');
+                    const postedElement = container.querySelector('.card-post-date');
+                    const locationElement = container.querySelector('.card-location-name');
+                    const linkElement = container.querySelector('.card-job');
+
+                    const title = titleElement ? titleElement.textContent.trim() : 'N/A';
+                    const salaryText = salary ? salary : 'N/A';
+                    const refNum = refNumElement ? refNumElement.textContent.trim() : 'N/A';
+                    const time = timeElement ? timeElement.textContent.trim() : 'N/A';
+                    const posted = postedElement ? postedElement.textContent.trim() : 'N/A';
+                    const locationName = locationElement ? locationElement.textContent.trim() : 'N/A';
+                    const link = linkElement ? linkElement.href : '';
+
+                    const sussexLocations = {
+                        'brighton': [50.8225, -0.1372],
+                        'crawley': [51.1118, -0.1883],
+                        'coolham': [50.9567, -0.3381],
+                        'horsham': [51.0371, -0.3277],
+                        'hove': [50.8410, -0.1564],
+                        'worthing': [50.8167, -0.3728],
+                        'eastbourne': [50.7680, 0.2905],
+                        'hastings': [50.8562, 0.5735],
+                        'lewes': [50.8748, 0.0115],
+                        'newhaven': [50.7913, 0.0416],
+                        'seaford': [50.7715, 0.0837],
+                        'uckfield': [51.0055, 0.1075],
+                        'hailsham': [50.8637, 0.3421],
+                        'polegate': [50.8175, 0.2704],
+                        'shoreham-by-sea': [50.8264, -0.2720],
+                        'burgess hill': [50.9632, -0.1383],
+                        'haywards heath': [50.9934, -0.0934],
+                        'littlehampton': [50.8063, -0.5475],
+                        'bognor regis': [50.7857, -0.6722],
+                        'chichester': [50.8374, -0.7783],
+                        'billingshurst': [51.0233, -0.4543],
+                        'rustington': [50.8103, -0.5083],
+                        'shoreham': [50.8264, -0.2720],
+                        'billingshurst, west sussex': [51.0233, -0.4543],
+                        'coolham, west sussex': [50.9567, -0.3381],
+                        'brighton, east sussex': [50.8225, -0.1372],
+                        'shoreham-on-sea': [50.8264, -0.2720],
+                        'shoreham': [50.8264, -0.2720]
+                    };
+
+                    let lat = 0;
+                    let lng = 0;
+
+                    const locationKey = locationName.toLowerCase().trim()
+                        .replace(/,.*$/, '')  
+                        .replace(/-/g, '')   
+                        .replace(/\s+/g, '');
+
+                    if (sussexLocations[locationKey]) {
+                        lat = sussexLocations[locationKey][0];
+                        lng = sussexLocations[locationKey][1];
+                    }
+
+                    jobs.push({ title, salary: salaryText, refNum, time, posted, locationName, link, lat, lng });
+                });
+
+                return jobs;
+            } catch (error) {
+                throw new Error(`Failed to process page ${url}: ${error.message}`);
+            }
+        }
+
+        function displayJobs(jobs) {
+            let tableHTML = '<table>';
+            tableHTML += '<thead><tr><th>Title</th><th>Salary</th><th>Ref Num</th><th>Time</th><th>Posted</th><th>Location</th><th>Link</th></tr></thead><tbody>';
+
+            let bounds = L.latLngBounds();
+
+            jobs.forEach(job => {
+                tableHTML += `
+                    <tr>
+                        <td>${job.title}</td>
+                        <td>${job.salary}</td>
+                        <td>${job.refNum}</td>
+                        <td>${job.time}</td>
+                        <td>${job.posted}</td>
+                        <td>${job.locationName}</td>
+                        <td><a href="${job.link}" target="_blank">Apply</a></td>
+                    </tr>
+                `;
+
+                if (job.lat && job.lng) {
+                    bounds.extend([job.lat, job.lng]);
+                    addMarker(job);
+                }
+            });
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('jobs').innerHTML = tableHTML;
+
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [50, 50] });
+            } else {
+                map.setView([50.8278, -0.0742], 9);
+            }
+        }
+
         function addMarker(job) {
             if (!map || !job.lat || !job.lng) return;
+
             let marker = L.marker([job.lat, job.lng]).addTo(map);
             let popupContent = `
                 <b><a href="${job.link}" target="_blank">${job.title}</a></b><br>
@@ -52,127 +192,6 @@
         function clearMarkers() {
             markers.forEach(marker => map.removeLayer(marker));
             markers = [];
-        }
-
-        async function getJobs() {
-            const url = document.getElementById('url').value;
-            const jobsDiv = document.getElementById('jobs');
-            jobsDiv.innerHTML = 'Loading...';
-            clearMarkers();
-
-            try {
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-                const response = await fetch(proxyUrl);
-                const data = await response.json();
-                const html = data.contents;
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
-
-                const jobContainers = doc.querySelectorAll('.card-job-col');
-
-                if (jobContainers.length > 0) {
-                    let tableHTML = '<table>';
-                    tableHTML += '<thead><tr><th>Title</th><th>Salary</th><th>Ref Num</th><th>Time</th><th>Posted</th><th>Location</th><th>Link</th></tr></thead><tbody>';
-
-                    let bounds = L.latLngBounds();
-                    let jobs = [];
-
-                    jobContainers.forEach(container => {
-                        const titleElement = container.querySelector('.card-title');
-                        const salary = container.getAttribute('data-salary');
-                        const refNumElement = container.querySelector('.card-refNum');
-                        const timeElement = container.querySelector('.card-time');
-                        const postedElement = container.querySelector('.card-post-date');
-                        const locationElement = container.querySelector('.card-location-name');
-                        const linkElement = container.querySelector('.card-job');
-
-                        const title = titleElement ? titleElement.textContent.trim() : 'N/A';
-                        const salaryText = salary ? salary : 'N/A';
-                        const refNum = refNumElement ? refNumElement.textContent.trim() : 'N/A';
-                        const time = timeElement ? timeElement.textContent.trim() : 'N/A';
-                        const posted = postedElement ? postedElement.textContent.trim() : 'N/A';
-                        const locationName = locationElement ? locationElement.textContent.trim() : 'N/A';
-                        const link = linkElement ? linkElement.href : '';
-
-                        const sussexLocations = {
-    'brighton': [50.8225, -0.1372],
-    'crawley': [51.1118, -0.1883],
-    'coolham': [50.9567, -0.3381],
-    'horsham': [51.0371, -0.3277],
-    'hove': [50.8410, -0.1564],
-    'worthing': [50.8167, -0.3728],
-    'eastbourne': [50.7680, 0.2905],
-    'hastings': [50.8562, 0.5735],
-    'lewes': [50.8748, 0.0115],
-    'newhaven': [50.7913, 0.0416],
-    'seaford': [50.7715, 0.0837],
-    'uckfield': [51.0055, 0.1075],
-    'hailsham': [50.8637, 0.3421],
-    'polegate': [50.8175, 0.2704],
-    'shoreham-by-sea': [50.8264, -0.2720],
-    'burgess hill': [50.9632, -0.1383],
-    'haywards heath': [50.9934, -0.0934],
-    'littlehampton': [50.8063, -0.5475],
-    'bognor regis': [50.7857, -0.6722],
-    'chichester': [50.8374, -0.7783],
-    'billingshurst': [51.0233, -0.4543],
-    'rustington': [50.8103, -0.5083],
-    'shoreham': [50.8264, -0.2720],
-    'billingshurst, west sussex': [51.0233, -0.4543],
-    'coolham, west sussex': [50.9567, -0.3381],
-    'brighton, east sussex': [50.8225, -0.1372],
-    'shoreham-on-sea': [50.8264, -0.2720],  // Added mapping
-    'shoreham': [50.8264, -0.2720]
-};
-
-                        let lat = 0;
-                        let lng = 0;
-
-                        const locationKey = locationName.toLowerCase().trim()
-                            .replace(/,.*$/, '')  
-                            .replace(/-/g, '')   
-                            .replace(/\s+/g, '');
-
-                        if (sussexLocations[locationKey]) {
-                            lat = sussexLocations[locationKey][0];
-                            lng = sussexLocations[locationKey][1];
-                            bounds.extend([lat, lng]);
-                        }
-
-                        jobs.push({ title, salary: salaryText, refNum, time, posted, locationName, link, lat, lng });
-
-                        tableHTML += `
-                            <tr>
-                                <td>${title}</td>
-                                <td>${salaryText}</td>
-                                <td>${refNum}</td>
-                                <td>${time}</td>
-                                <td>${posted}</td>
-                                <td>${locationName}</td>
-                                <td><a href="${link}" target="_blank">Apply</a></td>
-                            </tr>
-                        `;
-                    });
-
-                    tableHTML += '</tbody></table>';
-                    jobsDiv.innerHTML = tableHTML;
-
-                    jobs.forEach(job => {
-                        addMarker(job);
-                    });
-
-                    if (bounds.isValid()) {
-                        map.fitBounds(bounds, { padding: [50, 50] });
-                    } else {
-                        map.setView([50.8278, -0.0742], 9);
-                    }
-
-                } else {
-                    jobsDiv.innerHTML = 'No jobs found.';
-                }
-            } catch (error) {
-                jobsDiv.innerHTML = `Error: ${error.message}`;
-            }
         }
     </script>
 </body>
