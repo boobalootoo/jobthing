@@ -1,252 +1,853 @@
 <!DOCTYPE html>
+
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Indeed Data Extractor</title>
-    <script>
-        // Tailwind CSS configuration (for demonstration purposes - use PostCSS in production)
-        tailwind = {
-            config: {
-                theme: {
-                    extend: {
-                        fontFamily: {
-                            'inter': ['Inter', 'sans-serif']
-                        },
-                    }
-                }
-            }
-        }
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-    </style>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Indeed Data Extractor</title>
+
+    <script>
+
+        // Tailwind CSS configuration (for demonstration purposes - use PostCSS in production)
+
+        tailwind = {
+
+            config: {
+
+                theme: {
+
+                    extend: {
+
+                        fontFamily: {
+
+                            'inter': ['Inter', 'sans-serif']
+
+                        },
+
+                    }
+
+                }
+
+            }
+
+        }
+
+    </script>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+    <style>
+
+        body {
+
+            font-family: 'Inter', sans-serif;
+
+        }
+
+        /* Add some basic table styling for better presentation */
+
+        #jobDataTable {
+
+            width: 100%;
+
+            border-collapse: collapse;
+
+            margin-top: 1rem;
+
+            margin-bottom: 1rem;
+
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+
+            border-radius: 0.5rem;
+
+            overflow: hidden;
+
+        }
+
+        #jobDataTable thead th {
+
+            background-color: #f3f4f6;
+
+            color: #6b7280;
+
+            padding: 0.75rem;
+
+            text-align: left;
+
+            font-size: 0.875rem;
+
+            font-weight: 500;
+
+            border-bottom: 1px solid #e5e7eb;
+
+        }
+
+        #jobDataTable tbody td {
+
+            padding: 0.75rem;
+
+            color: #374151;
+
+            border-bottom: 1px solid #f9fafb;
+
+        }
+
+        #jobDataTable tbody tr:hover {
+
+            background-color: #f9fafb;
+
+        }
+
+        #jobDataTable tbody td strong {
+
+            color: #1f2937;
+
+        }
+
+
+
+        /* Map styling */
+
+        #map {
+
+            height: 400px;  /* Adjust as needed */
+
+            width: 100%;
+
+            margin-top: 1rem;
+
+            border-radius: 0.5rem;
+
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+
+        }
+
+        .marker {
+
+            background-color: #007bff; /* Blue marker */
+
+            width: 10px;
+
+            height: 10px;
+
+            border-radius: 50%;
+
+            cursor: pointer;
+
+        }
+
+        .marker:hover {
+
+            background-color: #0056b3; /* Darker blue on hover */
+
+        }
+
+        .popup {
+
+            background-color: white;
+
+            padding: 0.5rem;
+
+            border-radius: 0.5rem;
+
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+
+            font-size: 0.875rem;
+
+            color: #333;
+
+        }
+
+    </style>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
 </head>
+
 <body class="bg-gray-100 p-6">
-    <div class="container max-w-2xl mx-auto bg-white shadow-md rounded-lg p-8">                
-        <div class="mb-4">
-            <div class="flex items-center gap-2">                                
-                <div class="flex items-center gap-2">
-                    <button id="copySourceCodeAddress" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md text-lg focus:outline-none focus:shadow-outline">
-                        Click Here
-                    </button>
-                </div>
-            </div>
-            <p id="file-name" class="mt-2 text-sm text-gray-500"></p>
-            <p class="text-gray-500 text-sm mt-1">Instructions: 1- ctrl L 2- ctrl V 3- enter 4- ctrl U 5- ctrl A 6- ctrl C 7- paste into text box</p>
-            <label for="codeInput" class="block text-gray-700 text-sm font-bold mb-2 mt-4">Paste Source Code:</label>
-            <textarea id="codeInput" placeholder="Paste HTML source code here..." class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32 resize-y"></textarea>
-            
-            <div class="mt-4" id="progress-bar" style="display: none;">
-                <div class="bg-gray-200 rounded-full h-2.5">
-                    <div class="bg-indigo-600 h-2.5 rounded-full" id="progress" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-                <p id="progress-text" class="text-right text-sm text-indigo-600">0%</p>
-            </div>
-        </div>
-        <div id="output" class="mt-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
-            <h2 class="text-lg font-semibold text-gray-800 mb-3">Extracted Data:</h2>
-            <ul id="jobDataOutput" class="text-blue-600 list-disc list-inside"></ul>
-        </div>
-    </div>
-    <script>
-        const fileInput = document.getElementById('fileInput');
-        const fileNameDisplay = document.getElementById('file-name');
-        const codeInput = document.getElementById('codeInput');
-        const output = document.getElementById('output');
-        const jobDataOutput = document.getElementById('jobDataOutput');
-        const progressBar = document.getElementById('progress-bar');
-        const progress = document.getElementById('progress');
-        const progressText = document.getElementById('progress-text');
-        const copySourceCodeAddressButton = document.getElementById('copySourceCodeAddress');
+
+    <div class="container max-w-2xl mx-auto bg-white shadow-md rounded-lg p-8">
+
+        <div class="mb-4">
+
+            <div class="flex items-center gap-2">
+
+                <div class="flex items-center gap-2">
+
+                    <button id="copySourceCodeAddress" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md text-lg focus:outline-none focus:shadow-outline">
+
+                        Click Here
+
+                    </button>
+
+                </div>
+
+            </div>
+
+            <p id="file-name" class="mt-2 text-sm text-gray-500"></p>
+
+            <p class="text-gray-500 text-sm mt-1">Instructions: click button, put any filters you want on, ctrl U , ctrl A, ctrl C, paste into box below</p>
+
+            <label for="codeInput" class="block text-gray-700 text-sm font-bold mb-2 mt-4">Paste Source Code:</label>
+
+            <textarea id="codeInput" placeholder="Paste HTML source code here..." class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline h-32 resize-y"></textarea>
 
 
-        const sourceCodeAddress = "https://uk.indeed.com/jobs?q=&l=BN2&from=searchOnHP&vjk=56c254694960efac";
 
-        const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB limit
-        const MAX_TEXT_LENGTH = 2000000; // 2MB character limit (approx, assuming 1 byte per char)
+            <div class="mt-4" id="progress-bar" style="display: none;">
 
-        if (fileInput) {  // Check if the element exists
-            fileInput.addEventListener('change', function() {
-                const file = this.files[0];
-                if (file) {
-                    fileNameDisplay.textContent = `Selected file: ${file.name}`;
-                    if (file.size > MAX_FILE_SIZE_BYTES) {
-                        alert(`File size exceeds the limit of 2MB. Please upload a smaller file.`);
-                        this.value = ''; // Clear the file input
-                        fileNameDisplay.textContent = '';
-                        return;
-                    }
-                    progressBar.style.display = 'block';
-                    loadAndExtract(file, null);
-                     if (codeInput) {
-                        codeInput.value = ''; // Clear the textarea
-                    }
-                } else {
-                    fileNameDisplay.textContent = '';
-                    progressBar.style.display = 'none';
-                    progress.style.width = '0%';
-                    progress.setAttribute('aria-valuenow', 0);
-                    progressText.textContent = '0%';
-                    jobDataOutput.innerHTML = '';
-                }
-            });
-        }
+                <div class="bg-gray-200 rounded-full h-2.5">
 
-        if (codeInput) {
-             codeInput.addEventListener('change', function() {
-                // Clear file input and url when text is pasted
-                if (fileInput) {
-                    fileInput.value = '';
-                }
-                fileNameDisplay.textContent = '';
-                if (this.value) {
-                    if (this.value.length > MAX_TEXT_LENGTH) {
-                        alert(`Text size exceeds the limit of 2MB. Please paste smaller code.`);
-                        this.value = ''; // Clear the textarea
-                        progressBar.style.display = 'none';
-                        progress.style.width = '0%';
-                        progress.setAttribute('aria-valuenow', 0);
-                        progressText.textContent = '0%';
-                        jobDataOutput.innerHTML = '';
-                        return;
-                    }
-                    progressBar.style.display = 'block';
-                    loadAndExtract(null, this.value);
-                }
-            });
-        }
+                    <div class="bg-indigo-600 h-2.5 rounded-full" id="progress" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
 
-        if (copySourceCodeAddressButton) {
-            copySourceCodeAddressButton.addEventListener('click', function() {
-                // Copy the source code address as plain text
-                navigator.clipboard.writeText(sourceCodeAddress)
-                    .then(() => {
-                        // Open the source code address in a new tab
-                       const newTab = window.open();
-                        if (newTab) {
-                           newTab.location.href = sourceCodeAddress;
-                        } else {
-                           alert('Please allow popups for this site to open the source code.');
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error:", error);
-                        // Open the source code address in a new tab even if copying fails
-                         const newTab = window.open();
-                        if (newTab) {
-                           newTab.location.href = sourceCodeAddress;
-                        } else {
-                           alert('Please allow popups for this site to open the source code.');
-                        }
-                    });
-            });
-        }
+                </div>
 
-        function updateProgress(percent) {
-            progress.style.width = `${percent}%`;
-            progress.setAttribute('aria-valuenow', percent);
-            progressText.textContent = `${percent}%`;
-        }
+                <p id="progress-text" class="text-right text-sm text-indigo-600">0%</p>
 
-        function loadAndExtract(file, textContent) {
-            let content = '';
-            if (file) {
-                const reader = new FileReader();
+            </div>
 
-                reader.onloadstart = function() {
-                    updateProgress(0);
-                };
+        </div>
 
-                reader.onprogress = function(event) {
-                    if (event.lengthComputable) {
-                        const percentComplete = Math.round((event.loaded / event.total) * 100);
-                        updateProgress(percentComplete);
-                    }
-                };
+        <div id="output" class="mt-6">
 
-                reader.onload = function(event) {
-                    try {
-                        content = event.target.result;
-                        const jobData = extractJobData(content);
-                        jobDataOutput.innerHTML = ''; // Clear previous results
-                        if (jobData.length > 0) {
-                            jobData.forEach(item => {
-                                const li = document.createElement('li');
-                                li.innerHTML = `<strong>Job Title:</strong> ${item.title}, <strong>Company:</strong> ${item.company}, <strong>Location:</strong> ${item.location}`;
-                                jobDataOutput.appendChild(li);
-                            });
-                        } else {
-                            jobDataOutput.innerHTML = '<li>No job data found.</li>';
-                        }
-                    } catch (error) {
-                        jobDataOutput.textContent = `Error: ${error.message}`;
-                    } finally {
-                        updateProgress(100);
-                        setTimeout(() => {
-                            progressBar.style.display = 'none';
-                            progress.style.width = '0%';
-                            progressText.textContent = '0%';
-                        }, 1000);
-                    }
-                };
+            <h2 class="text-lg font-semibold text-gray-800 mb-3">Extracted Data:</h2>
 
-                reader.onerror = function() {
-                    jobDataOutput.textContent = 'File reading failed.';
-                    progressBar.style.display = 'none';
-                };
+            <table id="jobDataTable" style="display: none;">
 
-                reader.readAsText(file);
-            } else if (textContent) {
-                try {
-                    const jobData = extractJobData(textContent);
-                    jobDataOutput.innerHTML = ''; // Clear previous results
-                    if (jobData.length > 0) {
-                        jobData.forEach(item => {
-                            const li = document.createElement('li');
-                            li.innerHTML = `<strong>Job Title:</strong> ${item.title}, <strong>Company:</strong> ${item.company}, <strong>Location:</strong> ${item.location}`;
-                        jobDataOutput.appendChild(li);
-                        });
-                    } else {
-                        jobDataOutput.innerHTML = '<li>No job data found.</li>';
-                    }
-                } catch (error) {
-                    jobDataOutput.textContent = `Error: ${error.message}`;
-                } finally {
-                    updateProgress(100);
-                    setTimeout(() => {
-                        progressBar.style.display = 'none';
-                        progress.style.width = '0%';
-                        progressText.textContent = '0%';
-                    }, 1000);
-                }
-            }
+                <thead>
 
-        }
+                    <tr>
 
-        function extractJobData(html) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const jobElements = doc.querySelectorAll('.job_seen_beacon');
-            const jobData = [];
+                        <th>Job Title</th>
 
-            jobElements.forEach(jobElement => {
-                const titleElement = jobElement.querySelector('.jobTitle');
-                const companyElement = jobElement.querySelector('.companyName');
-                const locationElement = jobElement.querySelector('[data-testid="text-location"]');
+                        <th>Company</th>
 
-                const title = titleElement ? titleElement.textContent.trim() : 'N/A';
-                const company = companyElement ? companyElement.textContent.trim() : 'N/A';
-                const location = locationElement ? locationElement.textContent.trim() : 'N/A';
+                        <th>Location</th>
 
-                jobData.push({ title, company, location });
-            });
-            return jobData;
-        }
-    </script>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                    </tbody>
+
+            </table>
+
+            <p id="noDataMessage" class="text-gray-500">No job data found.</p>
+
+            <div id="map" style="display: none;"></div>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        const fileInput = document.getElementById('fileInput');
+
+        const fileNameDisplay = document.getElementById('file-name');
+
+        const codeInput = document.getElementById('codeInput');
+
+        const output = document.getElementById('output');
+
+        const jobDataTable = document.getElementById('jobDataTable');
+
+        const jobDataOutput = jobDataTable.querySelector('tbody');
+
+        const progressBar = document.getElementById('progress-bar');
+
+        const progress = document.getElementById('progress');
+
+        const progressText = document.getElementById('progress-text');
+
+        const copySourceCodeAddressButton = document.getElementById('copySourceCodeAddress');
+
+        const noDataMessage = document.getElementById('noDataMessage');
+
+        const mapElement = document.getElementById('map');
+
+
+
+        const sourceCodeAddress = "https://uk.indeed.com/jobs?q=&l=BN2&from=searchOnHP&vjk=56c254694960efac";
+
+
+
+        const MAX_FILE_SIZE_BYTES = 2 * 1024 * 1024; // 2MB limit
+
+        const MAX_TEXT_LENGTH = 2000000; // 2MB character limit
+
+        let map;
+
+
+
+        if (fileInput) {
+
+            fileInput.addEventListener('change', function() {
+
+                const file = this.files[0];
+
+                if (file) {
+
+                    fileNameDisplay.textContent = `Selected file: ${file.name}`;
+
+                    if (file.size > MAX_FILE_SIZE_BYTES) {
+
+                        alert(`File size exceeds the limit of 2MB. Please upload a smaller file.`);
+
+                        this.value = '';
+
+                        fileNameDisplay.textContent = '';
+
+                        return;
+
+                    }
+
+                    progressBar.style.display = 'block';
+
+                    loadAndExtract(file, null);
+
+                    if (codeInput) {
+
+                        codeInput.value = '';
+
+                    }
+
+                } else {
+
+                    fileNameDisplay.textContent = '';
+
+                    progressBar.style.display = 'none';
+
+                    progress.style.width = '0%';
+
+                    progress.setAttribute('aria-valuenow', 0);
+
+                    progressText.textContent = '0%';
+
+                    jobDataOutput.innerHTML = '';
+
+                    jobDataTable.style.display = 'none';
+
+                    noDataMessage.style.display = 'block';
+
+                    if (map) {
+
+                        mapElement.style.display = 'none';
+
+                        map.remove();
+
+                        map = null;
+
+                    }
+
+                }
+
+            });
+
+        }
+
+
+
+        if (codeInput) {
+
+            codeInput.addEventListener('change', function() {
+
+                if (fileInput) {
+
+                    fileInput.value = '';
+
+                }
+
+                fileNameDisplay.textContent = '';
+
+                if (this.value) {
+
+                    if (this.value.length > MAX_TEXT_LENGTH) {
+
+                        alert(`Text size exceeds the limit of 2MB. Please paste smaller code.`);
+
+                        this.value = '';
+
+                        progressBar.style.display = 'none';
+
+                        progress.style.width = '0%';
+
+                        progress.setAttribute('aria-valuenow', 0);
+
+                        progressText.textContent = '0%';
+
+                        jobDataOutput.innerHTML = '';
+
+                        jobDataTable.style.display = 'none';
+
+                        noDataMessage.style.display = 'block';
+
+                        if (map) {
+
+                            mapElement.style.display = 'none';
+
+                            map.remove();
+
+                            map = null;
+
+                        }
+
+                        return;
+
+                    }
+
+                    progressBar.style.display = 'block';
+
+                    loadAndExtract(null, this.value);
+
+                }
+
+            });
+
+        }
+
+
+
+        if (copySourceCodeAddressButton) {
+
+            copySourceCodeAddressButton.addEventListener('click', function() {
+
+                navigator.clipboard.writeText(sourceCodeAddress)
+
+                    .then(() => {
+
+                        const newTab = window.open();
+
+                        if (newTab) {
+
+                            newTab.location.href = sourceCodeAddress;
+
+                        } else {
+
+                            alert('Please allow popups for this site to open the source code.');
+
+                        }
+
+                    })
+
+                    .catch(error => {
+
+                        console.error("Error:", error);
+
+                        const newTab = window.open();
+
+                        if (newTab) {
+
+                            newTab.location.href = sourceCodeAddress;
+
+                        } else {
+
+                            alert('Please allow popups for this site to open the source code.');
+
+                        }
+
+                    });
+
+            });
+
+        }
+
+
+
+        function updateProgress(percent) {
+
+            progress.style.width = `${percent}%`;
+
+            progress.setAttribute('aria-valuenow', percent);
+
+            progressText.textContent = `${percent}%`;
+
+        }
+
+
+
+        function loadAndExtract(file, textContent) {
+
+            let content = '';
+
+            if (file) {
+
+                const reader = new FileReader();
+
+
+
+                reader.onloadstart = function() {
+
+                    updateProgress(0);
+
+                };
+
+
+
+                reader.onprogress = function(event) {
+
+                    if (event.lengthComputable) {
+
+                        const percentComplete = Math.round((event.loaded / event.total) * 100);
+
+                        updateProgress(percentComplete);
+
+                    }
+
+                };
+
+
+
+                reader.onload = function(event) {
+
+                    try {
+
+                        content = event.target.result;
+
+                        const jobData = extractJobData(content);
+
+                        jobDataOutput.innerHTML = '';
+
+                        if (jobData.length > 0) {
+
+                            jobDataTable.style.display = 'table';
+
+                            noDataMessage.style.display = 'none';
+
+                            let bounds = [];
+
+                            jobData.forEach(item => {
+
+                                const row = jobDataOutput.insertRow();
+
+                                const titleCell = row.insertCell();
+
+                                const companyCell = row.insertCell();
+
+                                const locationCell = row.insertCell();
+
+
+
+                                titleCell.textContent = item.title;
+
+                                companyCell.textContent = item.company;
+
+                                locationCell.textContent = item.location;
+
+
+
+                                // Geocode location and add marker to map
+
+                                geocodeAndAddMarker(item.location, item.title, item.company);
+
+                            });
+
+                            if (map) {
+
+                                map.fitBounds(bounds);
+
+                            }
+
+                        } else {
+
+                            jobDataTable.style.display = 'none';
+
+                            noDataMessage.style.display = 'block';
+
+                            if (map) {
+
+                                mapElement.style.display = 'none';
+
+                                map.remove();
+
+                                map = null;
+
+                            }
+
+                        }
+
+                    } catch (error) {
+
+                        jobDataOutput.textContent = `Error: ${error.message}`;
+
+                        jobDataTable.style.display = 'none';
+
+                        noDataMessage.style.display = 'block';
+
+                        if (map) {
+
+                            mapElement.style.display = 'none';
+
+                            map.remove();
+
+                            map = null;
+
+                        }
+
+                    } finally {
+
+                        updateProgress(100);
+
+                        setTimeout(() => {
+
+                            progressBar.style.display = 'none';
+
+                            progress.style.width = '0%';
+
+                            progressText.textContent = '0%';
+
+                        }, 1000);
+
+                    }
+
+                };
+
+
+
+                reader.onerror = function() {
+
+                    jobDataOutput.textContent = 'File reading failed.';
+
+                    progressBar.style.display = 'none';
+
+                    jobDataTable.style.display = 'none';
+
+                    noDataMessage.style.display = 'block';
+
+                    if (map) {
+
+                        mapElement.style.display = 'none';
+
+                        map.remove();
+
+                        map = null;
+
+                    }
+
+                };
+
+
+
+                reader.readAsText(file);
+
+            } else if (textContent) {
+
+                try {
+
+                    const jobData = extractJobData(textContent);
+
+                    jobDataOutput.innerHTML = '';
+
+                    if (jobData.length > 0) {
+
+                        jobDataTable.style.display = 'table';
+
+                        noDataMessage.style.display = 'none';
+
+                        let bounds = [];
+
+                        jobData.forEach(item => {
+
+                            const row = jobDataOutput.insertRow();
+
+                            const titleCell = row.insertCell();
+
+                            const companyCell = row.insertCell();
+
+                            const locationCell = row.insertCell();
+
+
+
+                            titleCell.textContent = item.title;
+
+                            companyCell.textContent = item.company;
+
+                            locationCell.textContent = item.location;
+
+
+
+                            // Geocode location and add marker to map
+
+                            geocodeAndAddMarker(item.location, item.title, item.company);
+
+                        });
+
+                        if (map) {
+
+                            map.fitBounds(bounds);
+
+                        }
+
+                    } else {
+
+                        jobDataTable.style.display = 'none';
+
+                        noDataMessage.style.display = 'block';
+
+                        if (map) {
+
+                            mapElement.style.display = 'none';
+
+                            map.remove();
+
+                            map = null;
+
+                        }
+
+                    }
+
+                } catch (error) {
+
+                    jobDataOutput.textContent = `Error: ${error.message}`;
+
+                    jobDataTable.style.display = 'none';
+
+                    noDataMessage.style.display = 'block';
+
+                    if (map) {
+
+                        mapElement.style.display = 'none';
+
+                        map.remove();
+
+                        map = null;
+
+                    }
+
+
+
+                } finally {
+
+                    updateProgress(100);
+
+                    setTimeout(() => {
+
+                        progressBar.style.display = 'none';
+
+                        progress.style.width = '0%';
+
+                        progressText.textContent = '0%';
+
+                    }, 1000);
+
+                }
+
+            }
+
+        }
+
+
+
+        function extractJobData(html) {
+
+            const parser = new DOMParser();
+
+            const doc = parser.parseFromString(html, 'text/html');
+
+            const jobElements = doc.querySelectorAll('.job_seen_beacon');
+
+            const jobData = [];
+
+
+
+            jobElements.forEach(jobElement => {
+
+                const titleElement = jobElement.querySelector('.jobTitle');
+
+                const companyElement = jobElement.querySelector('.companyName');
+
+                const locationElement = jobElement.querySelector('[data-testid="text-location"]');
+
+
+
+                const title = titleElement ? titleElement.textContent.trim() : 'N/A';
+
+                const company = companyElement ? companyElement.textContent.trim() : 'N/A';
+
+                const location = locationElement ? locationElement.textContent.trim() : 'N/A';
+
+
+
+                jobData.push({ title, company, location });
+
+            });
+
+            return jobData;
+
+        }
+
+
+
+        function geocodeAndAddMarker(locationString, title, company) {
+
+            // Using a simple geocoding service (replace with a more robust one like Google Maps API if needed)
+
+            const geocodingUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationString)}, UK`;
+
+
+
+            fetch(geocodingUrl)
+
+                .then(response => response.json())
+
+                .then(data => {
+
+                    if (data && data.length > 0) {
+
+                        const lat = parseFloat(data[0].lat);
+
+                        const lon = parseFloat(data[0].lon);
+
+                        if (!map) {
+
+                            mapElement.style.display = 'block';
+
+                            map = L.map('map').setView([lat, lon], 10); // Initialize map
+
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+
+                            }).addTo(map);
+
+                        }
+
+                         // Add marker with popup
+
+                        let popupContent = `<div class="popup"><strong>${title}</strong><br>Company: ${company}<br>Location: ${locationString}</div>`;
+
+                        L.marker([lat, lon]).addTo(map)
+
+                            .bindPopup(popupContent);
+
+                    } else {
+
+                        console.warn(`Geocoding failed for location: ${locationString}`);
+
+                    }
+
+                })
+
+                .catch(error => {
+
+                    console.error('Geocoding error:', error);
+
+                });
+
+        }
+
+    </script>
+
 </body>
+
 </html>
