@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Extractor</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        #jobs-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #jobs-table-container {
+            width: 100%;
+            max-width: 800px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f0f0f0;
+        }
+        #map {
+            height: 400px;
+            width: 100%;
+            max-width: 800px;
+            border: 1px solid #ccc;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .loading-message {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #555;
+        }
+        #file-upload-container {
+            margin-bottom: 20px;
+        }
+    </style>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="jobs-container">
+        <div id="file-upload-container">
+            <input type="file" id="html-file-input" accept=".txt,.html" style="display:none;"/>
+            <button id="extract-jobs-button">Extract Jobs</button>
+        </div>
+        <h1 class="loading-message" style="display:none;">Loading Jobs...</h1>
+        <div id="jobs-table-container" style="display:none;">
+            <table id="jobs-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Salary</th>
+                        <th>Location</th>
+                        <th>Company</th>
+                        <th>Job Type</th>
+                        <th>Posted Date</th>
+                        <th>Link</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div id="map" style="display:none;"></div>
+    </div>
+    <script>
+        let map;
+        let markers = [];
+        let jobLocations = {};
+        const haysUrl = 'https://www.hays.co.uk/job-search/in-brighton-uk?q=&location=Brighton,%20UK&specialismId=&subSpecialismId=&locationf=&industryf=&sortType=0&jobType=-1&flexiWorkType=-1&payTypefacet=-1&minPay=-1&maxPay=-1&jobSource=HaysGCJ&searchPageTitle=Jobs%20in%20Brighton,%20UK%20%7C%20Hays%20Recruitment%20UK&searchPageDesc=Browse%20all%20our%20jobs%20in%20Brighton,%20UK%20across%20a%20range%20of%20professions.%20Let%20the%20team%20at%20Hays%20Recruitment%20UK%20help%20you%20to%20find%20your%20next%20role!';
+
+
+        function initMap() {
+            map = L.map('map', {
+                center: [50.8278, -0.1372],
+                zoom: 10,
+                renderer: L.canvas()
+            });
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                subdomains: ['a', 'b', 'c'],
+                maxNativeZoom: 19,
+                maxZoom: 22,
+                reuseTiles: true,
+                updateWhenIdle: true,
+                unloadOtherTiles: true
+            }).addTo(map);
+            map.invalidateSize();
+        }
+
+        function extractHaysJobs(htmlContent) {
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlContent, 'text/html');
+                const jobResults = doc.querySelectorAll('.job-card');
+                const jobs = [];
+
+                jobResults.forEach((jobElement) => {
+                    try {
+                        const titleElement = jobElement.querySelector('h4');
+                        const salaryElement = jobElement.querySelector('ul li:nth-child(2)');
+                        const locationElement = jobElement.querySelector('ul li:nth-child(1)');
+                        const linkElement = jobElement.querySelector('a');
+                        const companyElement = null;
+                        const jobTypeElement = null;
+                        const postedDateElement = jobElement.querySelector('.text-black.fs-300');
+
+                        const title = titleElement ? titleElement.textContent.trim() : 'N/A';
+                        const salary = salaryElement ? salaryElement.textContent.trim().replace(/.*£/g, '') : 'N/A';
+                        const location = locationElement ? locationElement.textContent.trim() : 'N/A';
+                        const link = linkElement ? linkElement.href : 'N/A';
+                        const company = companyElement ? companyElement.textContent.trim() : 'N/A';
+                        const jobType = jobTypeElement ? jobTypeElement.textContent.trim() : 'N/A';
+                        const postedDate = postedDateElement ? postedDateElement.textContent.trim() : 'N/A';
+
+                        const locationParts = location.split(',').map(part => part.trim());
+                        const city = locationParts[0] || 'N/A';
+                        const region = locationParts[1] || 'N/A';
+
+                        jobs.push({
+                            title,
+                            salary,
+                            location,
+                            link,
+                            company,
+                            jobType,
+                            postedDate,
+                            city,
+                            region
+                        });
+                    } catch (innerError) {
+                        console.error('Error processing a single job:', innerError);
+                    }
+                });
+                return jobs;
+            } catch (error) {
+                console.error('Error parsing HTML:', error);
+                return [];
+            }
+        }
+
+        function displayJobs(jobs) {
+            const tableBody = document.querySelector('#jobs-table tbody');
+            tableBody.innerHTML = '';
+            let bounds = L.latLngBounds();
+            clearMarkers();
+            jobLocations = {};
+
+            jobs.forEach(job => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${job.title}</td>
+                    <td>${job.salary}</td>
+                    <td>${job.location}</td>
+                    <td>${job.company}</td>
+                    <td>${job.jobType}</td>
+                    <td>${job.postedDate}</td>
+                    <td><a href="${job.link}" target="_blank">Apply</a></td>
+                `;
+                tableBody.appendChild(row);
+
+                const locationString = job.location.toLowerCase();
+                if (!jobLocations[locationString]) {
+                    jobLocations[locationString] = [];
+                }
+                jobLocations[locationString].push(job);
+
+                let lat, lng;
+                if (job.city.toLowerCase().includes('brighton')) {
+                    lat = 50.8225;
+                    lng = -0.1372;
+                } else if (job.city.toLowerCase().includes('hove')) {
+                    lat = 50.8410;
+                    lng = -0.1564;
+                }
+                else if (job.city.toLowerCase().includes('crawley')) {
+                    lat = 51.1118;
+                    lng = -0.1883;
+                }
+                if (lat && lng) {
+                    bounds.extend([lat, lng]);
+                    addMarker(locationString, lat, lng);
+                }
+            });
+
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, {
+                    padding: [50, 50],
+                    maxZoom: 15
+                });
+            } else {
+                map.setView([50.8278, -0.1372], 10);
+            }
+            document.querySelector('.loading-message').style.display = 'none';
+            document.getElementById('jobs-table-container').style.display = 'block';
+            document.getElementById('map').style.display = 'block';
+            if (map) {
+                map.invalidateSize();
+            }
+        }
+
+        function addMarker(locationString, lat, lng) {
+            if (!map || !lat || !lng) return;
+
+            let marker = L.marker([lat, lng]).addTo(map);
+            let popupContent = '';
+            const jobsAtLocation = jobLocations[locationString];
+
+            if (jobsAtLocation && jobsAtLocation.length > 0) {
+                popupContent = '<b>Jobs at this Location:</b><br>';
+                jobsAtLocation.forEach(job => {
+                    popupContent += `<a href="${job.link}" target="_blank">${job.title}</a><br>`;
+                });
+            }
+            marker.bindPopup(popupContent);
+            markers.push(marker);
+        }
+
+        function clearMarkers() {
+            if (map && markers.length > 0) {
+                markers.forEach(marker => map.removeLayer(marker));
+                markers = [];
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const fileInput = document.getElementById('html-file-input');
+            const extractButton = document.getElementById('extract-jobs-button');
+            const loadingMessage = document.querySelector('.loading-message');
+            const haysUrl = 'https://www.hays.co.uk/job-search/in-brighton-uk?q=&location=Brighton,%20UK&specialismId=&subSpecialismId=&locationf=&industryf=&sortType=0&jobType=-1&flexiWorkType=-1&payTypefacet=-1&minPay=-1&maxPay=-1&jobSource=HaysGCJ&searchPageTitle=Jobs%20in%20Brighton,%20UK%20%7C%20Hays%20Recruitment%20UK&searchPageDesc=Browse%20all%20our%20jobs%20in%20Brighton,%20UK%20across%20a%20range%20of%20professions.%20Let%20the%20team%20at%20Hays%20Recruitment%20UK%20help%20you%20to%20find%20your%20next%20role!';
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(haysUrl);
+
+
+            initMap();
+
+            extractButton.addEventListener('click', () => {
+                loadingMessage.style.display = 'block';
+                document.getElementById('jobs-table-container').style.display = 'none';
+                document.getElementById('map').style.display = 'none';
+                clearMarkers();
+
+                fetch(proxyUrl)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const htmlContent = data.contents;
+                        const jobs = extractHaysJobs(htmlContent);
+                        displayJobs(jobs);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching or processing data:', error);
+                        loadingMessage.style.display = 'none';
+                        alert('Failed to fetch job data. Please check your internet connection and try again.');
+                    });
+            });
+        });
+    </script>
+</body>
+</html>
